@@ -10,19 +10,23 @@ see [MODEL-FORMATS.md](MODEL-FORMATS.md); for measured performance, see
 Source audit: **`prism-b10709-9a9394a`**, the release pinned by the demo when this
 page was added. Pending PRs and newer branch code do not count as released support.
 
-**Implemented** means the release contains backend code for the format. It does
-not certify every GPU, driver, operation, or launch configuration. This table is
-based on source inspection, not a new hardware test campaign. A model loading or
-`llama-bench` completing alone does not establish correct model output.
+✅ Implemented · ❌ No native kernels · ⚠️ Partial / needs validation.
+Source-level status, not a guarantee for every device or configuration.
 
-| Backend in our fork | PQ2_0 | PTQ1_0 | Q2_0 (development model) | Notes |
-|---|---|---|---|---|
-| CPU | Implemented | Implemented | Implemented | Architecture-specific optimizations and generic paths differ. |
-| Metal | Implemented | Implemented | Implemented | Some operations can fall back to CPU; availability does not imply every operation runs on GPU. |
-| CUDA | Implemented | Implemented | Implemented | GPU architecture, driver, and CUDA build must match. |
-| ROCm / HIP | Implemented via shared CUDA/HIP sources | Implemented via shared CUDA/HIP sources | Implemented via shared CUDA/HIP sources | Validate on the specific AMD GPU and build; shared source does not establish CUDA-equivalent behavior. |
-| Vulkan | No native format kernels in this release | Implemented, with path limitations | Implemented | PTQ1_0 has scalar/coopmat1 paths, but no coopmat2 decoder; fallback paths and device support matter. |
-| SYCL | No native format kernels identified | No native format kernels identified | Conversion path implemented | Hadamard/FWHT code exists; full Bonsai 2 execution needs device/build validation. |
+| Backend | PQ2_0 | PTQ1_0 | Q2_0 (dev) |
+|---|:---:|:---:|:---:|
+| CPU | ✅ | ✅ | ✅ |
+| Metal | ✅ | ✅ | ✅ |
+| CUDA | ✅ | ✅ | ✅ |
+| ROCm / HIP | ✅ | ✅ | ✅ |
+| Vulkan | ❌ | ✅* | ✅ |
+| SYCL | ❌ | ❌ | ⚠️ |
+
+- **Vulkan PTQ1_0:** scalar/coopmat1 paths exist; no coopmat2 decoder.
+- **SYCL Q2_0:** conversion and FWHT paths exist; full model execution needs validation.
+- **ROCm / HIP:** shares CUDA sources; validate on the target AMD GPU and build.
+- CPU optimizations vary by architecture; some GPU operations may fall back to CPU.
+  No new hardware tests were run for this table.
 
 The fork includes Hadamard execution paths on these backends. Bonsai 2 also needs
 its sign flips and model graph transformations; format decoding alone is insufficient.
