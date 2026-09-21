@@ -1,6 +1,7 @@
-# Bonsai 2 backend and format support
+# Backend and model format support
 
-This page tracks Bonsai 2 27B GGUF support in the PrismML llama.cpp fork.
+This page tracks GGUF format support and Bonsai 2 Hadamard support in the PrismML
+llama.cpp fork.
 Update it as releases and validation results change. For previous-generation formats,
 see [MODEL-FORMATS.md](MODEL-FORMATS.md); for measured performance, see
 [community benchmarks](community-benchmarks/bonsai2/README.md).
@@ -13,25 +14,46 @@ page was added. Pending PRs and newer branch code do not count as released suppo
 ✅ Implemented · ❌ No native kernels · ⚠️ Partial / needs validation.
 Source-level status, not a guarantee for every device or configuration.
 
-| Backend | PQ2_0 | PTQ1_0 | Q2_0 (dev) |
-|---|:---:|:---:|:---:|
-| CPU | ✅ | ✅ | ✅ |
-| Metal | ✅ | ✅ | ✅ |
-| CUDA | ✅ | ✅ | ✅ |
-| ROCm / HIP | ✅ | ✅ | ✅ |
-| Vulkan | ❌ | ✅* | ✅ |
-| SYCL | ❌ | ❌ | ⚠️ |
+## Quantized formats
+
+| Backend | Q1_0 | PQ2_0 | PTQ1_0 | Q2_0 |
+|---|:---:|:---:|:---:|:---:|
+| CPU | ✅ | ✅ | ✅ | ✅ |
+| Metal | ✅ | ✅ | ✅ | ✅ |
+| CUDA | ✅ | ✅ | ✅ | ✅ |
+| ROCm / HIP | ✅ | ✅ | ✅ | ✅ |
+| Vulkan | ✅ | ❌ | ✅* | ✅ |
+| SYCL | ✅ | ❌ | ❌ | ⚠️ |
+
+**Q1_0** is the earlier 1-bit Bonsai format, not a Bonsai 2 packing. It is broadly
+supported in mainline llama.cpp as well as our fork; optimizations and device-specific
+behavior can differ. Q2_0 is also an upstream format, but the Bonsai 2 Q2_0 model
+still requires the transforms below.
 
 - **Vulkan PTQ1_0:** scalar/coopmat1 paths exist; no coopmat2 decoder.
-- **SYCL Q2_0:** conversion and FWHT paths exist; full model execution needs validation.
+- **SYCL Q2_0:** conversion paths exist; full model execution needs validation.
 - **ROCm / HIP:** shares CUDA sources; validate on the target AMD GPU and build.
 - CPU optimizations vary by architecture; some GPU operations may fall back to CPU.
   No new hardware tests were run for this table.
 
-The fork includes Hadamard execution paths on these backends. Bonsai 2 also needs
-its sign flips and model graph transformations; format decoding alone is insufficient.
-Absence of native kernels does not describe every possible CPU fallback, and the
-presence of kernels does not rule out bugs.
+## Hadamard transforms (Bonsai 2)
+
+| Backend in our fork | Hadamard / FWHT path |
+|---|:---:|
+| CPU | ✅ |
+| Metal | ✅ |
+| CUDA | ✅ |
+| ROCm / HIP | ✅ |
+| Vulkan | ✅ |
+| SYCL | ✅ |
+
+These checks indicate implemented transform paths, subject to supported tensor
+shapes, data types, and device capabilities. They do not imply every quantized
+format is supported on that backend; consult both tables.
+
+Bonsai 2 also needs its sign flips and model graph transformations. Format decoding
+or a standalone Hadamard kernel alone is insufficient. The upstream integration is
+still pending; use our fork for all Bonsai 2 GGUF formats for now.
 
 Do not use this table as a directory-name guard. A local build can enable multiple
 backends, and a binary under `bin/vulkan` can be launched with CPU offload settings.
@@ -66,6 +88,7 @@ use our fork and keep the fork requirement visible when linking or copying the f
 Release-pinned implementation references:
 
 - [CPU type traits and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-cpu/ggml-cpu.c)
+- [Metal FWHT and signed fusion](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-metal/ggml-metal-ops.cpp)
 - [Metal operation support](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-metal/ggml-metal-device.m)
 - [CUDA operation support and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-cuda/ggml-cuda.cu)
 - [HIP shared-source build](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-hip/CMakeLists.txt)
