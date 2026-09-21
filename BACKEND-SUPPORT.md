@@ -1,0 +1,75 @@
+# Bonsai 2 backend and format support
+
+This page tracks Bonsai 2 27B GGUF support in the PrismML llama.cpp fork.
+Update it as releases and validation results change. For previous-generation formats,
+see [MODEL-FORMATS.md](MODEL-FORMATS.md); for measured performance, see
+[community benchmarks](community-benchmarks/bonsai2/README.md).
+
+## Release baseline
+
+Source audit: **`prism-b10709-9a9394a`**, the release pinned by the demo when this
+page was added. Pending PRs and newer branch code do not count as released support.
+
+**Implemented** means the release contains backend code for the format. It does
+not certify every GPU, driver, operation, or launch configuration. This table is
+based on source inspection, not a new hardware test campaign. A model loading or
+`llama-bench` completing alone does not establish correct model output.
+
+| Backend in our fork | PQ2_0 | PTQ1_0 | Q2_0 (development model) | Notes |
+|---|---|---|---|---|
+| CPU | Implemented | Implemented | Implemented | Architecture-specific optimizations and generic paths differ. |
+| Metal | Implemented | Implemented | Implemented | Some operations can fall back to CPU; availability does not imply every operation runs on GPU. |
+| CUDA | Implemented | Implemented | Implemented | GPU architecture, driver, and CUDA build must match. |
+| ROCm / HIP | Implemented via shared CUDA/HIP sources | Implemented via shared CUDA/HIP sources | Implemented via shared CUDA/HIP sources | Validate on the specific AMD GPU and build; shared source does not establish CUDA-equivalent behavior. |
+| Vulkan | No native format kernels in this release | Implemented, with path limitations | Implemented | PTQ1_0 has scalar/coopmat1 paths, but no coopmat2 decoder; fallback paths and device support matter. |
+| SYCL | No native format kernels identified | No native format kernels identified | Conversion path implemented | Hadamard/FWHT code exists; full Bonsai 2 execution needs device/build validation. |
+
+The fork includes Hadamard execution paths on these backends. Bonsai 2 also needs
+its sign flips and model graph transformations; format decoding alone is insufficient.
+Absence of native kernels does not describe every possible CPU fallback, and the
+presence of kernels does not rule out bugs.
+
+Do not use this table as a directory-name guard. A local build can enable multiple
+backends, and a binary under `bin/vulkan` can be launched with CPU offload settings.
+Check the selected model, build, devices, and effective launch arguments. The demo's
+current model-selection registry is a selection policy, not a complete capability probe.
+In particular, setup downloading PQ2_0 does not imply native Vulkan PQ2_0 support.
+
+## Model files and upstream compatibility
+
+- **PQ2_0 and PTQ1_0:** published in the
+  [main Bonsai 2 GGUF repository](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf).
+  PQ2_0 is the demo's current download default. Both require our fork.
+- **Q2_0:** available separately as
+  [Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf-dev/blob/main/Ternary-Bonsai-2-27B-Q2_0-prism-fork-required.gguf)
+  in the development repository for testing and benchmarks with our fork.
+
+**Q2_0 is already an official llama.cpp format; upstream Bonsai 2 support is the
+missing piece.** Stock llama.cpp can recognize the file and load it while omitting
+the required Bonsai 2 Hadamard/sign-flip transforms, producing gibberish instead of
+an unknown-format error. PQ2_0 and PTQ1_0 instead encounter unknown-type errors in
+upstream builds without those custom types. Do not treat successful loading as
+compatibility.
+
+The separate development repository is temporary. Once the required upstream PRs
+are merged and Bonsai 2 Q2_0 works correctly in upstream llama.cpp, the plan is to
+move this model into the main Bonsai 2 GGUF repository. Applications embedding
+llama.cpp will also need to adopt a version containing those changes. Until then,
+use our fork and keep the fork requirement visible when linking or copying the file.
+
+## Evidence and maintenance
+
+Release-pinned implementation references:
+
+- [CPU type traits and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-cpu/ggml-cpu.c)
+- [Metal operation support](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-metal/ggml-metal-device.m)
+- [CUDA operation support and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-cuda/ggml-cuda.cu)
+- [HIP shared-source build](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-hip/CMakeLists.txt)
+- [Vulkan format pipelines and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-vulkan/ggml-vulkan.cpp)
+- [SYCL conversion dispatch](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/convert.cpp) and [FWHT dispatch](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/ggml-sycl.cpp)
+
+When updating a row, record the release/commit and link the implementation or
+validation report. Hardware validation should identify the model filename, GPU/CPU,
+OS, driver, backend build, exact command, and a correctness check as well as timings.
+Keep partial support and known limitations explicit. Update the baseline and source
+links when the demo's release pin changes; review launcher policy separately.
