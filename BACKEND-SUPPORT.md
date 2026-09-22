@@ -31,7 +31,8 @@ behavior can differ. Q2_0 is also an upstream format, but the Bonsai 2 Q2_0 mode
 still requires the transforms below.
 
 - **Vulkan PTQ1_0:** scalar/coopmat1 paths exist; no coopmat2 decoder.
-- **SYCL Q2_0:** conversion paths exist; full model execution needs validation.
+- **SYCL Q2_0:** conversion and matrix-vector dot-product kernels exist; the warning
+  reflects missing end-to-end validation, not missing format kernels.
 - **ROCm / HIP:** shares CUDA sources; validate on the target AMD GPU and build.
 - CPU optimizations vary by architecture; some GPU operations may fall back to CPU.
   No new hardware tests were run for this table.
@@ -44,8 +45,15 @@ still requires the transforms below.
 | Metal | ✅ |
 | CUDA | ✅ |
 | ROCm / HIP | ✅ |
-| Vulkan | ✅ |
-| SYCL | ✅ |
+| Vulkan | ✅* |
+| SYCL | ⚠️ |
+
+- **SYCL:** dedicated FWHT kernels for widths 64, 128, 256, and 512 on contiguous
+  F32 tensors. Wider rotations fall back to dense matrix multiplication, preserving
+  the transform but potentially running much slower.
+- **Vulkan:** FWHT kernels are disabled on Intel proprietary Windows drivers
+  from **32.0.101.8509 up to, but not including, 32.0.101.8860** because of crashes.
+  Those drivers use the ordinary matrix-multiply fallback instead.
 
 These checks indicate implemented transform paths, subject to supported tensor
 shapes, data types, and device capabilities. They do not imply every quantized
@@ -93,6 +101,8 @@ Release-pinned implementation references:
 - [CUDA operation support and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-cuda/ggml-cuda.cu)
 - [HIP shared-source build](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-hip/CMakeLists.txt)
 - [Vulkan format pipelines and FWHT](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-vulkan/ggml-vulkan.cpp)
+- [SYCL Q2_0 matrix-vector dispatch](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/mmvq.cpp) and [dot-product kernels](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/vecdotq.hpp)
+- [SYCL FWHT width and tensor restrictions](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/fwht.cpp)
 - [SYCL conversion dispatch](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/convert.cpp) and [FWHT dispatch](https://github.com/PrismML-Eng/llama.cpp/blob/prism-b10709-9a9394a/ggml/src/ggml-sycl/ggml-sycl.cpp)
 
 When updating a row, record the release/commit and link the implementation or
